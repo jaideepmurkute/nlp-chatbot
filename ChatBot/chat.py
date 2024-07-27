@@ -1,121 +1,143 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from datetime import datetime
+
+# flask code
+# from flask import Flask
 import torch
 
 from CFG import Config
+from utils import *
 
+class ChatBot:
+    def __init__(self, cfg) -> None:
+        self.cfg = cfg
+    
+    def find_hist_prop(self, cfg, curr_hist_len, curr_ip_len, max_tot_ip_len, step_size=0.1):
+        num_steps = int((cfg['max_hist_input_prop'] - cfg['min_hist_input_prop']) / step_size) + 1
+        hist_prop_lst = [cfg['min_hist_input_prop'] + (i*step_size) for i in range(num_steps)]
 
-def find_hist_prop(cfg, curr_hist_len, curr_ip_len, max_tot_ip_len, step_size=0.1):
-    num_steps = int((cfg['max_hist_input_prop'] - cfg['min_hist_input_prop']) / step_size) + 1
-    hist_prop_lst = [cfg['min_hist_input_prop']+(i*step_size) for i in range(num_steps)]
-    
-    hist_prop_to_use = None
-    for hist_prop in hist_prop_lst:
-        new_hist_len = int(hist_prop * curr_hist_len)
-        if new_hist_len + curr_ip_len <= max_tot_ip_len:
-            hist_prop_to_use = hist_prop
-            break
-    
-    if hist_prop_to_use is None: 
-        hist_prop_to_use = cfg['min_hist_input_prop']
-    
-    return hist_prop_to_use
+        hist_prop_to_use = None
+        for hist_prop in hist_prop_lst:
+            new_hist_len = int(hist_prop * curr_hist_len)
+            if new_hist_len + curr_ip_len <= max_tot_ip_len:
+                hist_prop_to_use = hist_prop
+                break
 
+        if hist_prop_to_use is None: 
+            hist_prop_to_use = cfg['min_hist_input_prop']
+
+        return hist_prop_to_use
         
-def merge_history(cfg, user_input_encoded, bot_input_ids, bot_attention_mask):
-    if len(bot_input_ids) == 0:
-        bot_input_ids = user_input_encoded['input_ids']
-        bot_attention_mask = user_input_encoded['attention_mask']
-    else:
-        curr_ip_len = user_input_encoded['input_ids'].shape[-1]
-        curr_hist_len = bot_input_ids.shape[-1]
-        curr_tot_ip_len = curr_ip_len + curr_hist_len
-        
-        if curr_tot_ip_len > int(cfg['max_len'] * cfg['max_tot_input_prop']):
-            # we need to truncate the history and/or current input
+    def merge_history(self, cfg, user_ip_enc, bot_input_ids, bot_attn_mask):
+        if len(bot_input_ids) == 0:
+            bot_input_ids = user_ip_enc['input_ids']
+            bot_attn_mask = user_ip_enc['attention_mask']
+        else:
+            curr_ip_len = user_ip_enc['input_ids'].shape[-1]
+            curr_hist_len = bot_input_ids.shape[-1]
+            curr_tot_ip_len = curr_ip_len + curr_hist_len
             
-            max_tot_ip_len = int(cfg['max_len'] * cfg['max_tot_input_prop'])
+            if curr_tot_ip_len > int(cfg['max_len'] * cfg['max_tot_input_prop']):
+                # we need to truncate the history and/or current input
+                
+                max_tot_ip_len = int(cfg['max_len'] * cfg['max_tot_input_prop'])
 
-            # Let's find maximum proportion of history we can keep; wrt max_tot_ip_len
-            hist_prop_to_use = find_hist_prop(cfg, curr_hist_len, curr_ip_len, max_tot_ip_len, step=0.1)
-            new_hist_len = int(hist_prop_to_use * curr_hist_len)
+                # Let's find maximum proportion of history we can keep; wrt max_tot_ip_len
+                hist_prop_to_use = self.find_hist_prop(cfg, curr_hist_len, 
+                                        curr_ip_len, max_tot_ip_len, step=0.1)
+                new_hist_len = int(hist_prop_to_use * curr_hist_len)
+                
+                # truncate the history
+                bot_input_ids = bot_input_ids[:, -new_hist_len:]
+                bot_attn_mask = bot_attn_mask[:, -new_hist_len:]
+                
+                # check if we need to check if we can keep the current input
+                # else, truncate it as well - when we set 'hist_prop_to_use' to min_hist_input_prop
+                if new_hist_len + curr_ip_len > max_tot_ip_len:
+                    # truncate the current input
+                    new_ip_len = max_tot_ip_len - new_hist_len
+                    user_ip_enc['input_ids'] = user_ip_enc['input_ids'][:, :new_ip_len]
+                    user_ip_enc['attention_mask'] = user_ip_enc['attention_mask'][:, :new_ip_len]
             
-            # truncate the history
-            bot_input_ids = bot_input_ids[:, -new_hist_len:]
-            bot_attention_mask = bot_attention_mask[:, -new_hist_len:]
-            
-            # check if we need to check if we can keep the current input
-            # else, truncate it as well - when we set 'hist_prop_to_use' to min_hist_input_prop
-            if new_hist_len + curr_ip_len > max_tot_ip_len:
-                # truncate the current input
-                new_ip_len = max_tot_ip_len - new_hist_len
-                user_input_encoded['input_ids'] = user_input_encoded['input_ids'][:, :new_ip_len]
-                user_input_encoded['attention_mask'] = user_input_encoded['attention_mask'][:, :new_ip_len]
-        
-        # merge the history and current input
-        bot_input_ids = torch.cat([bot_input_ids, user_input_encoded['input_ids']], dim=-1) 
-        bot_attention_mask = torch.cat([bot_attention_mask, user_input_encoded['attention_mask']], dim=-1)
-    
-    return user_input_encoded, bot_input_ids, bot_attention_mask
+            # merge the history and current input
+            bot_input_ids = torch.cat([bot_input_ids, user_ip_enc['input_ids']], dim=-1) 
+            bot_attn_mask = torch.cat([bot_attn_mask, user_ip_enc['attention_mask']], dim=-1)
 
+        return user_ip_enc, bot_input_ids, bot_attn_mask
 
-def chat(cfg, model, tokenizer):
-    bot_input_ids = torch.tensor([])
-    bot_attention_mask = torch.tensor([])
-    
-    for step in range(5):
-        user_input = input(">> User:")
-        user_input_encoded = tokenizer.encode_plus(user_input + tokenizer.eos_token, return_tensors='pt', 
-                                                   padding=True, truncation=True)
-        user_input_encoded, bot_input_ids, bot_attention_mask = merge_history(cfg, user_input_encoded, \
-                                                bot_input_ids, bot_attention_mask)
+    def chat(self, cfg, model, tokenizer):
         
-        model_op_ids = model.generate(bot_input_ids, attention_mask=bot_attention_mask, 
+        convos = [{
+                    'session_id': cfg['session_id'], 
+                    'datetime': datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+                }]
+        
+        bot_input_ids = torch.tensor([])
+        bot_attn_mask = torch.tensor([])
+        try:
+            for _ in range(cfg['max_convs']):
+                user_input = input(">> User:")
+                user_ip_enc = tokenizer.encode_plus(user_input + tokenizer.eos_token, 
+                                return_tensors='pt', padding=True, truncation=True)
+                
+                user_ip_enc, bot_input_ids, bot_attn_mask = \
+                                self.merge_history(cfg, user_ip_enc, bot_input_ids, bot_attn_mask)
+                
+                model_op_ids = model.generate(bot_input_ids, attention_mask=bot_attn_mask, 
                                 max_length=cfg['max_len'], pad_token_id=tokenizer.eos_token_id)
-        
-        response = tokenizer.decode(model_op_ids[:, bot_input_ids.shape[-1]:][0], skip_special_tokens=True)
-        
-        print("Model: {}".format(response))
-        
-        # Encode the model's response to get the attention mask
-        # NOTE: We dont need this step to get the model output token ids - since it is already generated by the model.
-        #               model_op_ids[:, bot_input_ids.shape[-1]:][0]
-        response_encoded = tokenizer.encode_plus(response + tokenizer.eos_token, return_tensors='pt', padding=True,
-                                                    truncation=True)
-        
-        bot_input_ids = torch.cat([bot_input_ids, response_encoded['input_ids']], dim=-1)
-        bot_attention_mask = torch.cat([bot_attention_mask, response_encoded['attention_mask']], dim=-1)
-    
-    
-def verify_config(cfg, model, tokenizer):
-    if cfg['max_len'] > model.config.n_ctx:
-        raise ValueError("'max_op_len' in cfg must be <= model.config.n_ctx")
-    if cfg['max_input_prop'] + cfg['max_history_input_prop'] != 1:
-        raise ValueError("'max_input_prop' + 'max_history_input_prop' must be equal to 1")
-    if cfg['min_hist_input_prop'] > cfg['max_hist_input_prop']:
-        raise ValueError("'min_hist_input_prop' must be <= 'max_hist_input_prop'")
+                    
+                response = tokenizer.decode(model_op_ids[:, bot_input_ids.shape[-1]:][0], \
+                                        skip_special_tokens=True)
+                
+                print("Model: {}".format(response))
+                
+                convos.append({"user": user_input})
+                convos[-1]["model"] = response
+                
+                # Encode the model's response to get the attention mask
+                # NOTE: We dont need this step to get the model output token ids 
+                # - since it is already generated by the model.
+                resp_enc = tokenizer.encode_plus(response + tokenizer.eos_token, 
+                                return_tensors='pt', padding=True, truncation=True)
+                
+                bot_input_ids = torch.cat([bot_input_ids, resp_enc['input_ids']], dim=-1)
+                bot_attn_mask = torch.cat([bot_attn_mask, resp_enc['attention_mask']], dim=-1)
 
+            save_conversations(cfg, convos)
+            print("Max conversations reached. Conversation logs saved. Exiting chatbot !!!")
+        except KeyboardInterrupt:
+            print("\nKeyboard interrupt received. Saving conversation logs...")
+            save_conversations(cfg, convos)
+            print("Conversation logs saved. Exiting chatbot !!!")
+            
+        
+    # flask code
+    # @app.route('/')
+    def run(self):
+        model, tokenizer = get_model_and_tokenizer(cfg)
+    
+        # print("-"*50)
+        # print("model_config: ")
+        # print(model.config)
+        # print("-"*50)
+        # print("tokenizer_config: ")
+        # print(tokenizer)
+        # print("-"*50)
+            
+        self.chat(cfg, model, tokenizer)
 
-def get_model_and_tokenizer(config):
-    model = AutoModelForCausalLM.from_pretrained(config["model_name"])
-    
-    tokenizer = AutoTokenizer.from_pretrained(config["model_name"])
-    tokenizer.pad_token = tokenizer.eos_token  # Set pad_token to eos_token
-    
-    return model, tokenizer 
 
 if __name__ == "__main__":
     config = Config()
     cfg = config.config
     
-    model, tokenizer = get_model_and_tokenizer(cfg)
+    cfg = create_dirs_paths(cfg)
+    save_config(cfg)
     
-    print("-"*50)
-    print("model_config: ")
-    print(model.config)
-    print("-"*50)
-    print("tokenizer_config: ")
-    print(tokenizer)
-    print("-"*50)
-        
-    chat(cfg, model, tokenizer)
+    ChatBot(cfg).run()
+    
+    # flask code
+    # app.run(debug=True)
+    
+    
     

@@ -3,6 +3,7 @@ class Config:
     def __init__(self):
         self.config = {
             'model_name': "microsoft/DialoGPT-small",
+            'max_convs': 30, # number of conversations
             
             # input + output length
             'max_len': 1000,  # must be <= model.config.n_ctx
@@ -25,7 +26,10 @@ class Config:
             'repetition_penalty': 1.0,
         
             'seed': 42,
-            'output_store_dir': "./output",
+            'output_store_dir': ".\outputs",
+            'model_store_dir': ".\model_store",
+        
         }
+    
         
     
