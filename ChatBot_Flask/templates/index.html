@@ -1,0 +1,102 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>NLP Chatbot</h1>
+        <!-- ---------------- -->
+        <div class="main-content">
+            <div class="chat-container">
+                <div class="chat-box" id="chat-box"></div>
+                <input type="text" id="chat-input" class="chat-input" placeholder="Type a message..." \
+                                onkeypress="sendMessage(event)">
+                <button id="close-chat-button" class="close-chat-button">Close Chat</button>
+                <button id="new-session-button" class="new-session-button">New Session</button> <!-- Add this line -->
+            </div>
+            <!-- ---------------- -->
+            <div class="info-container">
+                <h3>Model Information</h3>
+                <p id="model-info">Loading...</p>
+            </div>
+        </div>
+    </div>
+    <!-- -------------------------------- -->
+    <script>
+        function sendMessage(event) {
+            if (event.key === 'Enter') {
+                const userInput = document.getElementById('chat-input').value;
+                if (userInput.trim() === '') return;
+
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML += `<div class="chat-message user">User: ${userInput}</div>`;
+                document.getElementById('chat-input').value = '';
+
+                fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `user_input=${encodeURIComponent(userInput)}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    chatBox.innerHTML += `<div class="chat-message bot">Model: ${data.response}</div>`;
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                });
+            }
+        }
+        // <!-- ---------------- -->
+        // Fetch and display model information
+        fetch('/model_info')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('model-info').innerText = data.model_name;
+            });
+        
+        // <!-- ---------------- -->
+        document.getElementById('new-session-button').addEventListener('click', startNewSession);
+        
+        function startNewSession() {
+            fetch('/new_session', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('chat-box').innerHTML = '';
+                }
+            });
+        }
+        // <!-- ---------------- -->
+        // document.getElementById('close-chat-button').addEventListener('click', function() {
+        //     fetch('/close_chat', { method: 'POST' })
+        //         .then(response => response.json())
+        //         .then(data => {
+        //             alert(data.message);
+        //             window.close();  // Close the window or redirect as needed
+        //         });
+        // });
+        document.getElementById('close-chat-button').addEventListener('click', function() {
+            fetch('/close_chat', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    // Attempt to close the window
+                    if (window.opener) {
+                        window.close();
+                    } else {
+                        // Open a new window and close it immediately
+                        let newWindow = window.open('', '_self');
+                        newWindow.close();
+                    }
+                });
+            });
+        
+    </script>
+</body>
+</html>
