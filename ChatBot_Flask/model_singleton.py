@@ -14,6 +14,5 @@ class ModelSingleton:
         
         # Initialize your model and tokenizer here using cfg
         self.model, self.tokenizer = get_model_and_tokenizer(cfg)
-        self.cfg = cfg  # Store the configuration
         
         

@@ -1,3 +1,25 @@
+"""
+NLP Chatbot Application
+
+This application implements an NLP chatbot with custom context management to allow for improved conversation 
+quality with shorter context size models.
+
+Supports custom behaviours based on the configuration settings in CFG.py.
+
+Supports three modes of context management:
+    1] Vanilla: The chatbot uses a fixed size context window for the conversation history.
+    2] prop_slice: For the long history and inputs; the chatbot dynamically adjusts the context 
+                and input size based on the proportions set by the user.
+    2] summarize_prop_slice: The chatbot dynamically adjusts the context and input size based by 
+            first generating the summary of long history or the input and then applying proportional 
+            slicing to the inputs.
+
+Author: Jaideep Murkute
+Date: 2024-07-29
+Version: 1.0
+
+"""
+
 
 from datetime import datetime
 
@@ -5,11 +27,29 @@ from flask import Flask, render_template, request, jsonify
 import torch
 
 from CFG import Config
-from utils import *
 from model_singleton import ModelSingleton
+from utils import *
 
 
 class ChatBot:
+    """
+    The main class for ChatBot application.
+        1] Implements the Core chatbot logic.
+        2] Implements custom history/context management for chatbot.
+        3] Sets up the Flask routes for chatbot.
+
+    Attributes
+    ----------
+    cfg : dict
+        Configuration settings for the ChatBot.
+    app : Flask
+        The Flask application instance.
+
+    Methods
+    -------
+    __init__(self, cfg, app)
+        Initializes the ChatBot with the given configuration and app.
+    """
     def __init__(self, cfg, app) -> None:
         self.cfg = cfg
         self.app = app
@@ -28,21 +68,45 @@ class ChatBot:
         
     
     def find_hist_prop(self, step_size=0.1):
-        num_steps = int((self.cfg['max_hist_input_prop'] - self.cfg['min_hist_input_prop']) / step_size) + 1
-        hist_prop_lst = [self.cfg['min_hist_input_prop'] + (i*step_size) for i in range(num_steps)]
+            """
+            Finds the maximum proportion for the amount of historical input to use in the total input.
+            Based on current history state and input and proportion parameters in the configuration.
 
-        hist_prop_to_use = None
-        for hist_prop in hist_prop_lst:
-            new_hist_len = int(hist_prop * self.curr_hist_len)
-            if new_hist_len + self.curr_ip_len <= self.max_tot_ip_len:
-                hist_prop_to_use = hist_prop
-                break
+            Parameters:
+            - step_size (float): The step size to increment the historical input proportion. Default is 0.1.
 
-        if hist_prop_to_use is None: hist_prop_to_use = self.cfg['min_hist_input_prop']
+            Returns:
+            - hist_prop_to_use (float): The historical input proportion to use.
+            """
+            
+            num_steps = int((self.cfg['max_hist_input_prop'] - self.cfg['min_hist_input_prop']) / step_size) + 1
+            hist_prop_lst = [self.cfg['min_hist_input_prop'] + (i*step_size) for i in range(num_steps)]
 
-        return hist_prop_to_use
+            hist_prop_to_use = None
+            for hist_prop in hist_prop_lst:
+                new_hist_len = int(hist_prop * self.curr_hist_len)
+                if new_hist_len + self.curr_ip_len <= self.max_tot_ip_len:
+                    hist_prop_to_use = hist_prop
+                    break
+
+            if hist_prop_to_use is None: hist_prop_to_use = self.cfg['min_hist_input_prop']
+
+            return hist_prop_to_use
         
     def merge_history(self):
+        '''
+        Merges the current user input with the historical conversation context.
+        
+        If the combined input and history exceed the maximum allowed size for the total model input,
+        it finds the maximum proportion of history and input that can fit and keeps that portion 
+        to feed to the model.
+        
+        Parameters:
+        - None
+        
+        Returns:
+        - None
+        '''
         if len(self.bot_ip_ids) == 0:
             self.bot_ip_ids = self.user_ip_enc['input_ids']
             self.bot_att_mask = self.user_ip_enc['attention_mask']
@@ -69,7 +133,19 @@ class ChatBot:
             self.bot_att_mask = torch.cat([self.bot_att_mask, self.user_ip_enc['attention_mask']], dim=-1)
         
     def generate_response(self, user_input):
+        '''
+        Function handles the core chatbot logic:
+        1] Encodes the user input
+        2] Calls the merge_history method to merge the user input with the historical context
+        3] Generates the model's response for the given user input
+        4] Response is saved in the response attribute and also in the convos attribute
         
+        Parameters:
+        - user_input (str): The input text from the user.
+        
+        Returns:
+        - None 
+        '''
         self.user_ip_enc = self.tokenizer.encode_plus(user_input + self.tokenizer.eos_token, 
                         return_tensors='pt', padding=True, truncation=True)
         
@@ -91,6 +167,9 @@ class ChatBot:
         self.bot_att_mask = torch.cat([self.bot_att_mask, resp_enc['attention_mask']], dim=-1)
 
     def setup_routes(self):
+        '''
+        Function encapsulates the Flask web application routes handlers for the ChatBot application.
+        '''
         @self.app.route('/')
         def index():
             return render_template('index.html')
@@ -114,7 +193,12 @@ class ChatBot:
 
         @app.route('/new_session', methods=['POST'])
         def new_session():
-            # Logic to start a new session
+            '''
+            Starts a new chatbot session by: 
+                1] Saving past conversation logs.
+                2] Creates new directories with a new session id.
+                3] Resets the config and class states. 
+            '''
             # save the current conversation logs
             save_conversations(self.cfg, self.convos)
             print("Cleaning data for session ID: ", self.cfg['session_id'])
@@ -136,8 +220,10 @@ class ChatBot:
             
             return jsonify(success=True)
 
-        
 
+'''
+Main function to run the ChatBot application.
+'''
 if __name__ == "__main__":
     config = Config()
     cfg = config.config
