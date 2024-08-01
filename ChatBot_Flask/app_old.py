@@ -24,7 +24,7 @@ Version: 1.0
 from datetime import datetime
 import sys
 
-from flask import Flask, render_template, request, jsonify, g, abort
+from flask import Flask, render_template, request, jsonify
 import torch
 
 from CFG import Config
@@ -171,15 +171,15 @@ class ChatBot:
         '''
         Function encapsulates the Flask web application routes handlers for the ChatBot application.
         '''
-        # @self.app.route('/')
-        # def index(self):
-        #     return render_template('index.html')
+        @self.app.route('/')
+        def index(self):
+            return render_template('index.html')
 
-        # @self.app.route('/chat', methods=['POST'])
-        # def chat(self):
-        #     user_input = request.form['user_input']
-        #     self.generate_response(user_input)
-        #     return jsonify(response=self.response)
+        @self.app.route('/chat', methods=['POST'])
+        def chat(self):
+            user_input = request.form['user_input']
+            self.generate_response(user_input)
+            return jsonify(response=self.response)
         
         @self.app.route('/close_chat', methods=['POST'])
         def close_chat(self):
@@ -188,9 +188,9 @@ class ChatBot:
             save_conversations(self.cfg, self.convos)
             return jsonify(message="Chat closed successfully.")
         
-        # @self.app.route('/model_info', methods=['GET'])
-        # def model_info(self):
-        #     return jsonify(model_name=self.cfg['model_name'])
+        @self.app.route('/model_info', methods=['GET'])
+        def model_info(self):
+            return jsonify(model_name=self.cfg['model_name'])
 
         @self.app.route('/new_session', methods=['POST'])
         def new_session(self):
@@ -225,67 +225,31 @@ class ChatBot:
 app = Flask(__name__)
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# @app.route('/')
+# def index():
+#     return render_template('index.html')
 
-
-@app.route('/model_info', methods=['GET'])
-def model_info():
-    return jsonify(model_name=g.cfg['model_name'])
-
-
-@app.route('/chat', methods=['POST'])
-def chat(chatbot):
-    user_input = request.form['user_input']
-    cb.generate_response(user_input)
-    return jsonify(response=g.cb.response)
-
-    
-@app.before_request
-def before_request():
-    if 'cfg' not in app.config or 'cb' not in app.config:
-        abort(500, description="Configuration not properly set in app.config")
-    if 'cfg' not in g:
-        g.cfg = app.config['cfg']
-    if 'cb' not in g:
-        g.cb = app.config['cb']
-     
 '''
 Main function to run the ChatBot application.
 '''
 
-# cfg = None  # Declare cfg as a global variable
+
 if __name__ == "__main__":
     config = Config()
-    # global cfg
     cfg = config.config
-    assert len(cfg) > 0, "Configuration settings not loaded properly !!!"
-    
+
     cfg = create_dirs_paths(cfg)
     save_config(cfg)
 
-    cb = ChatBot(cfg, app)
-    assert cb is not None, "ChatBot not initialized properly !!!"
-    
-    # ------------------------------------
-    # with app.app_context():
-    #     g.cfg = cfg  # Store cfg in Flask's g object
-    #     g.cb = cb
-    
-    # Store cfg and cb in the app config
-    app.config['cfg'] = cfg
-    app.config['cb'] = cb
-    
+    chatbot = ChatBot(cfg, app)
 
-    # ------------------------------------
     try:
         # app.run(debug=True)
         # app.run(host='0.0.0.0')
         app.run(host="0.0.0.0", port=5100)
     except KeyboardInterrupt:
         print("\nKeyboard interrupt received. Saving conversation logs...")
-        save_conversations(cfg, cb.convos)
+        save_conversations(cfg, chatbot.convos)
         print("Conversation logs saved. Exiting chatbot !!!")
 
     
