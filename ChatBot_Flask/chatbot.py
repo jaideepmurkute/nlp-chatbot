@@ -1,7 +1,6 @@
-"""
-NLP Chatbot Application
 
-This application implements an NLP chatbot with custom context management to allow for improved conversation 
+'''
+Implements an NLP chatbot with custom context management to allow for improved conversation 
 quality with shorter context size models.
 
 Supports custom behaviours based on the configuration settings in CFG.py.
@@ -15,21 +14,20 @@ Supports three modes of context management:
             slicing to the inputs.
 
 Author: Jaideep Murkute
-Date: 2024-07-29
+Date: XXXX-XX-XX
 Version: 1.0
 
-"""
-
-
+'''
+import gc
 from datetime import datetime
-import sys
 
-from flask import Flask, render_template, request, jsonify
+from flask import render_template, request, jsonify
 import torch
 
 from CFG import Config
 from model_singleton import ModelSingleton
 from utils import *
+
 
 class ChatBot:
     """
@@ -53,13 +51,12 @@ class ChatBot:
     def __init__(self, cfg, app) -> None:
         self.cfg = cfg
         self.app = app
+        self.setup_routes() # setup the Flask action routes
         
         self.model_singleton = ModelSingleton(self.cfg)
         self.model = self.model_singleton.model
         self.tokenizer = self.model_singleton.tokenizer
         print("Model and tokenizer loaded successfully !!!")
-        
-        self.setup_routes()
         
         self.convos = [{'session_id': cfg['session_id'], 
                     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M:%S")}]
@@ -153,7 +150,7 @@ class ChatBot:
         self.merge_history()
         
         model_op_ids = self.model.generate(self.bot_ip_ids, attention_mask=self.bot_att_mask, 
-                        max_length=cfg['max_len'], pad_token_id=self.tokenizer.eos_token_id)
+                        max_length=self.cfg['max_len'], pad_token_id=self.tokenizer.eos_token_id)
             
         self.response = self.tokenizer.decode(model_op_ids[:, self.bot_ip_ids.shape[-1]:][0], \
                                 skip_special_tokens=True)
@@ -171,85 +168,54 @@ class ChatBot:
         '''
         Function encapsulates the Flask web application routes handlers for the ChatBot application.
         '''
-        @self.app.route('/')
-        def index(self):
-            return render_template('index.html')
-
-        @self.app.route('/chat', methods=['POST'])
-        def chat(self):
-            user_input = request.form['user_input']
-            self.generate_response(user_input)
-            return jsonify(response=self.response)
-        
-        @self.app.route('/close_chat', methods=['POST'])
-        def close_chat(self):
-            print("Chat closed by user.")
-            # Perform any cleanup if necessary
-            save_conversations(self.cfg, self.convos)
-            return jsonify(message="Chat closed successfully.")
-        
-        @self.app.route('/model_info', methods=['GET'])
-        def model_info(self):
-            return jsonify(model_name=self.cfg['model_name'])
-
-        @self.app.route('/new_session', methods=['POST'])
-        def new_session(self):
-            '''
-            Starts a new chatbot session by: 
-                1] Saving past conversation logs.
-                2] Creates new directories with a new session id.
-                3] Resets the config and class states. 
-            '''
-            # save the current conversation logs
-            save_conversations(self.cfg, self.convos)
-            print("Cleaning data for session ID: ", self.cfg['session_id'])
-
-            # reset the config and create new directories with new session id
-            config = Config()
-            self.cfg = config.config
-            self.cfg = create_dirs_paths(cfg)
-            save_config(self.cfg)
-            
-            # reset conversation tracking variables
-            self.convos = [{'session_id': cfg['session_id'], 
-                    'datetime': datetime.now().strftime("%d-%m-%Y %H:%M:%S")}]
-            self.bot_ip_ids = torch.tensor([])
-            self.bot_att_mask = torch.tensor([])
-            
-            print(f"New chatbot session initialized successfully !!!")
-            print("New session ID: ", self.cfg['session_id'])
-            
-            return jsonify(success=True)
-
-
-app = Flask(__name__)
-
-
-# @app.route('/')
-# def index():
-#     return render_template('index.html')
-
-'''
-Main function to run the ChatBot application.
-'''
-
-
-if __name__ == "__main__":
-    config = Config()
-    cfg = config.config
-
-    cfg = create_dirs_paths(cfg)
-    save_config(cfg)
-
-    chatbot = ChatBot(cfg, app)
-
-    try:
-        # app.run(debug=True)
-        # app.run(host='0.0.0.0')
-        app.run(host="0.0.0.0", port=5100)
-    except KeyboardInterrupt:
-        print("\nKeyboard interrupt received. Saving conversation logs...")
-        save_conversations(cfg, chatbot.convos)
-        print("Conversation logs saved. Exiting chatbot !!!")
-
+        self.app.route('/')(self.index)
+        self.app.route('/model_info', methods=['GET'])(self.model_info)
+        self.app.route('/chat', methods=['POST'])(self.chat)
+        self.app.route('/close_chat', methods=['POST'])(self.close_chat)
+        self.app.route('/new_session', methods=['POST'])(self.new_session)
     
+    def index(self):
+        return render_template('index.html')
+    
+    def model_info(self):
+        return jsonify(model_name=self.cfg['model_name'])
+
+    def chat(self):
+        user_input = request.form['user_input']
+        self.generate_response(user_input)
+        return jsonify(response=self.response)
+
+    def close_chat(self):
+        print("Chat closed by user.")
+        # Perform any cleanup if necessary
+        save_conversations(self.cfg, self.convos)
+        gc.collect()
+        return jsonify(message="Chat closed successfully.")
+    
+    def new_session(self):
+        '''
+        Starts a new chatbot session by: 
+            1] Saving past conversation logs.
+            2] Creates new directories with a new session id.
+            3] Resets the config and class states. 
+        '''
+        # save the current conversation logs
+        save_conversations(self.cfg, self.convos)
+        print("Cleaning data for session ID: ", self.cfg['session_id'])
+
+        # reset the config and create new directories with new session id
+        config = Config()
+        self.cfg = config.config
+        self.cfg = create_dirs_paths(self.cfg)
+        save_config(self.cfg)
+        
+        # reset conversation tracking variables
+        self.convos = [{'session_id': self.cfg['session_id'], 
+                'datetime': datetime.now().strftime("%d-%m-%Y %H:%M:%S")}]
+        self.bot_ip_ids = torch.tensor([])
+        self.bot_att_mask = torch.tensor([])
+        
+        print(f"New chatbot session initialized successfully !!!")
+        print("New session ID: ", self.cfg['session_id'])
+        
+        return jsonify(success=True)
