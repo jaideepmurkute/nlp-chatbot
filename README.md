@@ -60,10 +60,10 @@ It does so by methods like 'dynamic proportion based allocation' and 'summarizat
 2. **Set the config dictionary**:
     Update the config dictionary to customize behavior.
     1. `model_name`: HuggingFace conversational model name.
-    2. `max_tot_input_prop`: Upper ceiling for total input (history + current input)
-        2.1 `max_hist_input_prop`: Maximum proportion of the history tokens within total input.   
-        2.2 `min_hist_input_prop`: Minimum proportion of the history tokens within total input.  
-    # (Note: Actual proportaions are set dynamically after each user input)
+    2. `max_tot_input_prop`: Upper ceiling for total input (history + current input)  
+        - `max_hist_input_prop`: Maximum proportion of the history tokens within total input.   
+        - `min_hist_input_prop`: Minimum proportion of the history tokens within total input.     
+        #### (Note: Actual proportaions are set dynamically after each user input)
 
 <!-- 2. **Access the endpoints**:
     - **Chat Endpoint**: `POST /chat`
@@ -73,7 +73,7 @@ It does so by methods like 'dynamic proportion based allocation' and 'summarizat
         - **Response**: JSON with model information -->
 
 
-## Project Structure
+## Project Structure  
 - `app.py`: Main application file.
 - `CFG.py`: Configuration settings for the chatbot.
 - `chatbot.py`: Chatbot logic and response generation.
