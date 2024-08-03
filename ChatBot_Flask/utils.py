@@ -1,5 +1,6 @@
 
 import os
+import sys
 import random
 import string
 
@@ -99,6 +100,14 @@ def create_dirs_paths(cfg):
     
     
     return cfg
+
+def create_signal_handler(cfg, cb):
+    def signal_handler(sig, frame):
+        print("\nKeyboard interrupt received. Saving conversation logs...")
+        save_conversations(cfg, cb.convos)
+        print("Conversation logs saved. Exiting chatbot !!!")
+        sys.exit(0)
+    return signal_handler
 
 
 
