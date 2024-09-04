@@ -1,9 +1,15 @@
 
+'''
+This file contains the configuration parameters for the chatbot model.
+'''
+
+import os
+
 class Config:
     def __init__(self):
         self.config = {
             'model_name': "microsoft/DialoGPT-small",
-            'max_convs': 30, # number of conversations
+            'max_convs': 30, # max no. of conversations in a single session
             
             # input + output length
             'max_len': 1000,  # must be <= model.config.n_ctx
@@ -18,6 +24,7 @@ class Config:
             # define lower ceiling for history tokens length; as proportion of total input length
             'min_hist_input_prop': 0.1, 
             
+            # output sampling parameters
             'num_beams': 5,
             'num_return_sequences': 5,
             'temperature': 0.7,
@@ -26,9 +33,9 @@ class Config:
             'repetition_penalty': 1.0,
         
             'seed': 42,
-            'output_store_dir': ".\outputs",
-            'model_store_dir': ".\model_store",
-        
+            
+            'output_store_dir': os.path.join('..', 'outputs'), 
+            'model_store_dir': os.path.join('..', 'model_store'), 
         }
     
     def get_config(self):

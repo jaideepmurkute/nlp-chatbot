@@ -2,6 +2,9 @@
 from utils import get_model_and_tokenizer
 
 class ModelSingleton:
+    '''
+    Singleton class to load the model and tokenizer only once.
+    '''
     _instance = None
     
     def __new__(cls, cfg, *args, **kwargs):
@@ -11,8 +14,6 @@ class ModelSingleton:
         return cls._instance
 
     def initialize_model(self, cfg):
-        
-        # Initialize your model and tokenizer here using cfg
         self.model, self.tokenizer = get_model_and_tokenizer(cfg)
         
         

@@ -1,0 +1,21 @@
+# ignore local persistent dirs
+outputs
+model_store
+
+# ignore cache files & dirs
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.idea
+.vscode
+*.log
+*.sqlite3
+.DS_Store
+*.egg-info
+dist
+build
+
