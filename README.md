@@ -1,10 +1,9 @@
 # NLP Chatbot with Flask
 
-This project is a Natural Language Processing (NLP) based chatbot built using Flask.  
-The chatbot can generate responses based on user input and provides model information through a RESTful API.
-The chatbot performs explicit context management to improve performance of the models with with small context size. 
+NLP-LLM based chatbot built using Flask; with custom context handling.  
+The chatbot performs explicit context management to improve performance of the models with small context size. 
 It does so by methods like 'dynamic proportion based allocation' and 'summarization plus proportional allocation' methods.  
-
+The application handles user and model interactions through a RESTful API.
 
 <!-- ## Features
 
@@ -40,7 +39,10 @@ It does so by methods like 'dynamic proportion based allocation' and 'summarizat
 ## Usage
 
 1. **Run the Flask application**:
-    Assumes current location to be insice Chatbot_Flask  
+    ```
+    cd src
+    ```
+    Start the app:
     ```sh
     python app.py
     ```
@@ -50,20 +52,17 @@ It does so by methods like 'dynamic proportion based allocation' and 'summarizat
     ```
     OR
     ```sh
-    # Dockerize the application:  
-    # Build Image:   
-    docker build -t my-flask-chatbot .
-    # Run Image:   
-    docker run -p 5100:5100 my-flask-chatbot:latest
+    # Using Docker
+    docker-compose up --build
     ```
     
-2. **Set the config dictionary**:
+3. **[Optional] Customize the chatbot behavior**:
     Update the config dictionary to customize behavior.
-    1. `model_name`: HuggingFace conversational model name.
+    1. `model_name`: Any HuggingFace conversational model name.
     2. `max_tot_input_prop`: Upper ceiling for total input (history + current input)  
         - `max_hist_input_prop`: Maximum proportion of the history tokens within total input.   
         - `min_hist_input_prop`: Minimum proportion of the history tokens within total input.     
-        #### (Note: Actual proportaions are set dynamically after each user input)
+        #### (Note: Actual proportaions are updated dynamically after each user input)
 
 <!-- 2. **Access the endpoints**:
     - **Chat Endpoint**: `POST /chat`
@@ -73,14 +72,5 @@ It does so by methods like 'dynamic proportion based allocation' and 'summarizat
         - **Response**: JSON with model information -->
 
 
-## Project Structure  
-- `app.py`: Main application file.
-- `CFG.py`: Configuration settings for the chatbot.
-- `chatbot.py`: Chatbot logic and response generation.
-- `requirements.txt`: List of dependencies.
-- `README.md`: Project documentation.
-
-
 ## License
-
 This project is licensed under the MIT License.
