@@ -9,7 +9,7 @@ Supports three modes of context management:
     1] Vanilla: The chatbot uses a fixed size context window for the conversation history.
     2] prop_slice: For the long history and inputs; the chatbot dynamically adjusts the context 
                 and input size based on the proportions set by the user.
-    2] summarize_prop_slice: The chatbot dynamically adjusts the context and input size based by 
+    3] summarize_prop_slice: The chatbot dynamically adjusts the context and input size based by 
             first generating the summary of long history or the input and then applying proportional 
             slicing to the inputs.
 
