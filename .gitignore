@@ -10,6 +10,7 @@
 
 #ignore virtualenv
 venv/
+.venv/
 env/
 
 

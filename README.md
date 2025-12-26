@@ -52,7 +52,7 @@ The application handles user and model interactions through a RESTful API.
     ```
     OR
     ```sh
-    # Using Docker
+    # Using Docker - Start the Docker Desktop app if on windows
     docker-compose up --build
     ```
     
@@ -71,6 +71,11 @@ The application handles user and model interactions through a RESTful API.
     - **Model Info Endpoint**: `GET /model_info`
         - **Response**: JSON with model information -->
 
+#### About docker issues.
+If you cant delete the docker image because it is used by some container; but no containers are visible;
+then delete the container manually from command prompt.   
+See all containers: docker ps -a  
+Delete the one created by the chatbot app: docker rm chatbot_flask_container  
 
 ## License
 This project is licensed under the MIT License.

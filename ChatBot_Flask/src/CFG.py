@@ -8,8 +8,8 @@ import os
 class Config:
     def __init__(self):
         self.config = {
-            'model_name': "microsoft/DialoGPT-small",
-            'max_convs': 30, # max no. of conversations in a single session
+            'model_name': "experiment_1/finetuned_model/best", # "microsoft/DialoGPT-small"
+            'max_convs': 50, # max no. of conversations in a single session
             
             # input + output length
             'max_len': 1000,  # must be <= model.config.n_ctx

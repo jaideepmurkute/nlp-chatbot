@@ -8,7 +8,6 @@ Version: 1.0
 """
 
 import signal
-import sys
 from flask import Flask
 
 from CFG import Config

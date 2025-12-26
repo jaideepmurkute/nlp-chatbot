@@ -1,0 +1,15 @@
+1. The "Tech Support" Specialist (Best for Career Value)
+
+    Dataset: Bitext Customer Support Dataset or Stack Overflow Dialogues.
+
+    Why it works: Every company has a support or documentation team. Showing you can fine-tune a model to handle technical queries, maintain a professional tone, and extract intent is highly hireable.
+
+    Resume Hook: "Fine-tuned a specialized support agent capable of resolving multi-step technical troubleshooting queries while maintaining strict brand-voice alignment."
+
+2. The "Medical/Wellness" Assistant (Best for showing Accuracy/Safety)
+
+    Dataset: ruslanmv/ai-medical-chatbot (contains ~200k+ doctor-patient interactions).
+
+    Why it works: Medical data is messy and high-stakes. If you show you can handle this, it proves you understand data cleaning and model grounding (making sure the bot doesn't give dangerous advice).
+
+    Resume Hook: "Developed a domain-specific wellness bot using a curated dataset of 100k+ healthcare dialogues, implementing rigorous preprocessing to ensure response coherence."
