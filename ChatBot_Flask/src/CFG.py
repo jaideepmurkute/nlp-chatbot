@@ -8,7 +8,7 @@ import os
 class Config:
     def __init__(self):
         self.config = {
-            'model_name': "experiment_1/finetuned_model/best", # "microsoft/DialoGPT-small"
+            'model_name': "Qwen/Qwen2.5-1.5B-Instruct", #"experiment_1/finetuned_model/best", # "microsoft/DialoGPT-small"
             'max_convs': 50, # max no. of conversations in a single session
             
             # input + output length
@@ -25,12 +25,13 @@ class Config:
             'min_hist_input_prop': 0.1, 
             
             # output sampling parameters
-            'num_beams': 5,
-            'num_return_sequences': 5,
-            'temperature': 0.7,
+            'num_beams': 1,
+            'num_return_sequences': 1,
+            'temperature': 0.75,         # Balanced creativity
             'top_k': 50,
             'top_p': 0.95,
-            'repetition_penalty': 1.0,
+            'repetition_penalty': 1.0,  # Disabled to fix gibberish
+            'no_repeat_ngram_size': 3,  # Prevents repeating 3-word phrases (fixes loops)
         
             'seed': 42,
             
