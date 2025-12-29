@@ -5,6 +5,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 from config import Config
+from system_prompts import CUSTOMER_SUPPORT_PROMPT
 
 
 def load_model(cfg):
@@ -67,6 +68,7 @@ def test(cfg):
     print(f"Loading test data from {cfg['data_path']}...")
     try:
         df = pd.read_csv(cfg['data_path'])
+        df = df[:10]
     except FileNotFoundError:
         print(f"Error: Data file not found at {cfg['data_path']}")
         return
@@ -74,18 +76,59 @@ def test(cfg):
     print("Generating responses for test set...")
     results = []
     
-    # Iterate through the dataset
     for index, row in tqdm(df.iterrows(), total=len(df), desc="Testing"):
-        context = str(row['context'])
-        true_response = str(row['response']) if 'response' in row else ""
+        # Handle different column names (Instruction vs Legacy)
+        if 'instruction' in row:
+            user_input = str(row['instruction'])
+            true_response = str(row['response'])
+        elif 'context' in row:
+            user_input = str(row['context'])
+            true_response = str(row['response'])
+        else:
+            continue
+
+        # -------------------------------------------------------------
+        # Prepare Input using Chat Template (SAME AS TRAINING)
+        # -------------------------------------------------------------
+        messages = [
+            {"role": "system", "content": CUSTOMER_SUPPORT_PROMPT},
+            {"role": "user", "content": user_input}
+        ]
         
-        # Generate prediction
-        generated_response = generate_response(model, tokenizer, context, device, cfg['max_len'])
+        # 'add_generation_prompt=True' tells Qwen to append "<|im_start|>assistant\n" at the end
+        # so it knows it is its turn to speak.
+        text = tokenizer.apply_chat_template(
+            messages, 
+            tokenize=False, 
+            add_generation_prompt=True
+        )
+        
+        inputs = tokenizer(text, return_tensors="pt").to(device)
+        
+        # Generate
+        '''
+        Setting `pad_token_id=tokenizer.eos_token_id`: since some models may not have a padding token or 
+            some sequences may end early in batch inference mode and not reach the max_new_tokens limit.
+        '''
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs, 
+                max_new_tokens=100,
+                do_sample=True,
+                temperature=0.7, 
+                top_p=0.9,
+                pad_token_id=tokenizer.eos_token_id
+            )
+            
+        # Decode only the NEW tokens (the response)
+        input_len = inputs['input_ids'].shape[1]
+        generated_tokens = outputs[0][input_len:]
+        model_response = tokenizer.decode(generated_tokens, skip_special_tokens=True)
         
         results.append({
-            'context': context,
+            'input': user_input,
             'true_response': true_response,
-            'generated_response': generated_response
+            'generated_response': model_response
         })
     
     # Save results

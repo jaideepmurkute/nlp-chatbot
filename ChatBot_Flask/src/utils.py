@@ -92,6 +92,7 @@ def save_conversations(cfg, convos):
     
     with open(session_conv_fpath, 'w') as f:
         json.dump(convos, f)
+        print("Logs saved at: {}".format(session_conv_fpath))
     
 def save_config(cfg):
     # Save the configuration dictionary with which the chatbot was initialized
@@ -147,9 +148,15 @@ def create_signal_handler(cfg, cb):
     '''
     def signal_handler(sig, frame):
         print("\nKeyboard interrupt received. Saving conversation logs...")
-        save_conversations(cfg, cb.convos)
-        print("Conversation logs saved. Exiting chatbot !!!")
+        if hasattr(cb, 'context') and cb.context:
+            final_log_dump = [cb.context.session_metadata] + cb.context.logs
+            save_conversations(cfg, final_log_dump)
+        else:
+            print("No context/logs to save.")
+        
+        print("Exiting chatbot !!!")
         sys.exit(0)
+    
     return signal_handler
 
 

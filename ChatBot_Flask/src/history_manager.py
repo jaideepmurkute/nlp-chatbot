@@ -161,6 +161,16 @@ class TokenTruncationManager(HistoryManager):
     def process_messages(self, messages: List[Dict], system_prompt: str, user_input: str, config: dict, tokenizer) -> List[Dict]:
         """
         [MODERN PIPELINE] Implement truncation for structured message lists (Instruct Models).
+        These models expect input format:
+        input = [{"role": "system", "content": system_prompt_str}, 
+                {"role": "user", "content": historical_user_prompt_str},
+                {"role": "assistant", "content": historical_response_str},
+                ...,
+                ...,
+                {"role": "user", "content": current_user_prompt_str},
+            ]
+        Internally, whole sequence is merged into a single string with special symbols denoting 'role' and 'content' ,
+        and tokenized into a single stream and fed to the model.
         
         Logic Overview:
         - Instead of slicing tensors, this selects WHOLE messages from history.
@@ -205,6 +215,8 @@ class TokenTruncationManager(HistoryManager):
             selected_history = []
             current_hist_tokens = 0
             
+            # select the convesation history that can fit in leftover memory - reversed order.
+            # Assumption: Older memory less important.
             for turn in reversed(messages):
                 # A single turn in logs is {'user': '...', 'model': '...'}
                 # We are traversing BACKWARDS: so we see Model response first, then User input
@@ -219,7 +231,7 @@ class TokenTruncationManager(HistoryManager):
                     else:
                         break # Stop if we can't fit the most recent half of the turn
 
-                # 2. Process User Input
+                # 2. Process User Input - prepended before above assistant response
                 if 'user' in turn:
                     content = turn['user']
                     turn_len = len(tokenizer.encode(content))

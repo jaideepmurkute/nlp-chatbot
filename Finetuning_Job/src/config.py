@@ -8,16 +8,19 @@ class Config:
             'choice': 1, # 1: train; 2: test
             'experiment_name': 'experiment_1', 
 
-            'model_name': "Qwen/Qwen2.5-1.5B-Instruct", # "microsoft/DialoGPT-small",
-            'data_path': os.path.join('..', 'data', 'sample_dataset.csv'),
+            'model_name': "Qwen/Qwen2.5-0.5B-Instruct", # "Qwen/Qwen2.5-1.5B-Instruct", # "microsoft/DialoGPT-small",
+
+            # 'data_path': os.path.join('..', 'data', 'sample_dataset.csv'),            
+            'data_path': os.path.join('..', 'data', 'Bitext-customer-support-llm-chatbot-training-dataset.csv'),
+
             'output_dir': os.path.join('..', 'outputs'),
             'model_store_dir': os.path.join('..', 'model_store'),
             'checkpoint_type': 'best', # 'best' or 'last'; For testing mode only (choice=2)
             
             # Training parameters
             'epochs': 1,
-            'early_stopping_patience': 3,
-            'batch_size': 1, # Reduced for CPU RAM
+            'early_stopping_patience': 1,
+            'batch_size': 8, # Reduced for CPU RAM
             'gradient_accumulation_steps': 4, # Simulate larger batch size
             
             # LoRA Parameters

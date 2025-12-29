@@ -17,7 +17,11 @@ from utils import housekeeping, plot_training_logs
 from inference import test
 
 
-def train_epoch(model, dataloader, optimizer, scheduler, device, log_interval, accumulation_steps):
+def train_epoch(cfg, model, dataloader, optimizer, scheduler, device):
+    accumulation_steps = cfg.get('gradient_accumulation_steps', 1)
+    log_interval = cfg.get('log_interval', 10)
+    use_gradient_clipping = cfg.get('use_gradient_clipping', True)
+
     model.train()
     total_loss = 0
     losses = []
@@ -27,6 +31,9 @@ def train_epoch(model, dataloader, optimizer, scheduler, device, log_interval, a
     optimizer.zero_grad() # Initialize gradients
 
     for step, batch in enumerate(progress_bar):
+        # if batch == 5:
+        #     break
+
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
         labels = batch['labels'].to(device)
@@ -39,6 +46,10 @@ def train_epoch(model, dataloader, optimizer, scheduler, device, log_interval, a
         loss.backward()
         
         if (step + 1) % accumulation_steps == 0:
+            if use_gradient_clipping:
+                # Gradient Clipping - prevent exploding grads - max l2 norm of grads allowed=1.0
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
             optimizer.step()
             scheduler.step()
             optimizer.zero_grad()
@@ -65,6 +76,9 @@ def validate_epoch(model, dataloader, device):
     
     with torch.no_grad():
         for batch in tqdm(dataloader, desc="Validation"):
+            # if batch == 5:
+            #     break
+            
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels = batch['labels'].to(device)
@@ -94,9 +108,11 @@ def train(cfg):
     model = AutoModelForCausalLM.from_pretrained(cfg['model_name'])
     
     # Enable Gradient Checkpointing (saves memory)
-    model.gradient_checkpointing_enable()
+    if cfg.get('use_gradient_checkpointing', False):
+        model.gradient_checkpointing_enable()
     
     # Apply LoRA if enabled
+    # will create a separate set of lora matrix weights and freeze older larger matrices.
     if cfg.get('use_lora', False):
         try:
             from peft import get_peft_model, LoraConfig, TaskType
@@ -104,8 +120,8 @@ def train(cfg):
             peft_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM, 
                 inference_mode=False, 
-                r=cfg.get('lora_r', 8), 
-                lora_alpha=cfg.get('lora_alpha', 32), 
+                r=cfg.get('lora_r', 8), # Rank of the update matrices (The "capacity" of new info provided)
+                lora_alpha=cfg.get('lora_alpha', 32), # Scaling factor (Like learning rate multiplier: Scale = alpha/r)
                 lora_dropout=cfg.get('lora_dropout', 0.1)
             )
             model = get_peft_model(model, peft_config)
@@ -124,6 +140,8 @@ def train(cfg):
     
     print(f"Loading data from {cfg['data_path']}...")
     df = pd.read_csv(cfg['data_path'])
+    df = df[:10]
+
     full_dataset = ConversationDataset(tokenizer, df, cfg['max_len'])
     
     # Index-based split using sklearn
@@ -165,13 +183,11 @@ def train(cfg):
                 'val': {'loss': [], 'perplexity': []}
                 }
     
-    accumulation_steps = cfg.get('gradient_accumulation_steps', 1)
-    
     for epoch in range(cfg['epochs']):
         print(f"\nEpoch {epoch+1}/{cfg['epochs']}")
         
-        train_loss, train_perplexity = train_epoch(model, train_loader, optimizer, scheduler, 
-                                                device, cfg['log_interval'], accumulation_steps)
+        train_loss, train_perplexity = train_epoch(cfg, model, train_loader, optimizer, scheduler, 
+                                                device)
         
         val_loss, val_perplexity = validate_epoch(model, val_loader, device)
         
@@ -208,8 +224,7 @@ def train(cfg):
 
     # ----------------------------------
     
-    plot_training_logs(cfg, training_log)
-    
+    plot_training_logs(cfg, training_log)    
     
 
 if __name__ == "__main__":
