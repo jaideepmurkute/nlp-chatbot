@@ -17,13 +17,15 @@ from utils import housekeeping, plot_training_logs
 from inference import test
 
 
-def train_epoch(model, dataloader, optimizer, scheduler, device, log_interval):
+def train_epoch(model, dataloader, optimizer, scheduler, device, log_interval, accumulation_steps):
     model.train()
     total_loss = 0
     losses = []
     
     progress_bar = tqdm(dataloader, desc="Training")
     
+    optimizer.zero_grad() # Initialize gradients
+
     for step, batch in enumerate(progress_bar):
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
@@ -32,12 +34,16 @@ def train_epoch(model, dataloader, optimizer, scheduler, device, log_interval):
         outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
         loss = outputs.loss
         
+        # Normalize loss for gradient accumulation
+        loss = loss / accumulation_steps
         loss.backward()
-        optimizer.step()
-        scheduler.step()
-        optimizer.zero_grad()
         
-        current_loss = loss.item()
+        if (step + 1) % accumulation_steps == 0:
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
+        
+        current_loss = loss.item() * accumulation_steps # Scale back for logging
         total_loss += current_loss
         losses.append(current_loss)
         
@@ -86,6 +92,28 @@ def train(cfg):
     print(f"Using device: {device}")
     
     model = AutoModelForCausalLM.from_pretrained(cfg['model_name'])
+    
+    # Enable Gradient Checkpointing (saves memory)
+    model.gradient_checkpointing_enable()
+    
+    # Apply LoRA if enabled
+    if cfg.get('use_lora', False):
+        try:
+            from peft import get_peft_model, LoraConfig, TaskType
+            print("Applying LoRA for memory-efficient training...")
+            peft_config = LoraConfig(
+                task_type=TaskType.CAUSAL_LM, 
+                inference_mode=False, 
+                r=cfg.get('lora_r', 8), 
+                lora_alpha=cfg.get('lora_alpha', 32), 
+                lora_dropout=cfg.get('lora_dropout', 0.1)
+            )
+            model = get_peft_model(model, peft_config)
+            model.print_trainable_parameters()
+        except ImportError:
+            print("Warning: 'peft' library not found. Training full model (might OOM).")
+            print("Please install it: pip install peft")
+
     model.to(device)
     
     tokenizer = AutoTokenizer.from_pretrained(cfg['model_name'])
@@ -111,7 +139,7 @@ def train(cfg):
     # ----------------------------------
     optimizer = AdamW(model.parameters(), lr=cfg['learning_rate'])
 
-    total_steps = len(train_loader) * cfg['epochs']
+    total_steps = len(train_loader) * cfg['epochs'] // cfg.get('gradient_accumulation_steps', 1)
 
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -136,11 +164,14 @@ def train(cfg):
                 'train': {'loss': [], 'perplexity': []}, 
                 'val': {'loss': [], 'perplexity': []}
                 }
+    
+    accumulation_steps = cfg.get('gradient_accumulation_steps', 1)
+    
     for epoch in range(cfg['epochs']):
         print(f"\nEpoch {epoch+1}/{cfg['epochs']}")
         
         train_loss, train_perplexity = train_epoch(model, train_loader, optimizer, scheduler, 
-                                                device, cfg['log_interval'])
+                                                device, cfg['log_interval'], accumulation_steps)
         
         val_loss, val_perplexity = validate_epoch(model, val_loader, device)
         

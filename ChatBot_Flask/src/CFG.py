@@ -8,7 +8,9 @@ import os
 class Config:
     def __init__(self):
         self.config = {
-            'model_name': "Qwen/Qwen2.5-1.5B-Instruct", #"experiment_1/finetuned_model/best", # "microsoft/DialoGPT-small"
+            # "Qwen/Qwen2.5-1.5B-Instruct", #"experiment_1/finetuned_model_dialoGPT/best", # "microsoft/DialoGPT-small"
+            'model_name': "experiment_1_ft_qwen2_5-1_5B-Instruct/best",
+            
             'max_convs': 50, # max no. of conversations in a single session
             
             # input + output length

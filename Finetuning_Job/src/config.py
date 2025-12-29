@@ -5,10 +5,10 @@ import torch
 class Config:
     def __init__(self):
         self.config = {
-            'choice': 2, # 1: train; 2: test
+            'choice': 1, # 1: train; 2: test
             'experiment_name': 'experiment_1', 
 
-            'model_name': "microsoft/DialoGPT-small",
+            'model_name': "Qwen/Qwen2.5-1.5B-Instruct", # "microsoft/DialoGPT-small",
             'data_path': os.path.join('..', 'data', 'sample_dataset.csv'),
             'output_dir': os.path.join('..', 'outputs'),
             'model_store_dir': os.path.join('..', 'model_store'),
@@ -17,8 +17,16 @@ class Config:
             # Training parameters
             'epochs': 1,
             'early_stopping_patience': 3,
-            'batch_size': 4,
-            'learning_rate': 5e-5,
+            'batch_size': 1, # Reduced for CPU RAM
+            'gradient_accumulation_steps': 4, # Simulate larger batch size
+            
+            # LoRA Parameters
+            'use_lora': True,
+            'lora_r': 8,
+            'lora_alpha': 32,
+            'lora_dropout': 0.1,
+            
+            'learning_rate': 2e-4, # LoRA usually needs higher LR
             'warmup_steps': 100,
             'max_len': 512, # Max sequence length
             'seed': 42,
