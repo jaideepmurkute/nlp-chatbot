@@ -105,53 +105,7 @@ def train(cfg):
     device = torch.device(cfg['device'])
     print(f"Using device: {device}")
     
-    # --------------------------------------
-    # QLoRA (Quantized LoRA) Setup
-    # --------------------------------------
-    use_4bit = cfg.get('use_4bit', False)
-    quantization_config = None
-    
-    # In forward pass through model, bitsandbytes will do mapping of weights of from 4-bit weights to say 16-bit weights, 
-    # and will also perform multiplication with the input - and outputs result.
-    # bitsandbytes takes this over by replacing layers in pytorch model with references to its own custom layers
-    # that perform the above operations.
-    if use_4bit:
-        try:
-            from transformers import BitsAndBytesConfig
-            print("QLoRA Enabled: Using 4-bit quantization.")
-            
-            compute_dtype = getattr(torch, cfg.get('bnb_4bit_compute_dtype', 'float16'))
-            
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type=cfg.get('bnb_4bit_quant_type', 'nf4'),
-                bnb_4bit_use_double_quant=cfg.get('bnb_4bit_use_double_quant', True),
-                bnb_4bit_compute_dtype=compute_dtype
-            )
-        except ImportError:
-            print("Error: 'bitsandbytes' not found. Cannot Use 4-bit quantization.")
-            print("Please install it: pip install bitsandbytes")
-            raise
-    
-    '''
-    PyTorch AMP's Role:
-        Traditionally, without quantization, you use AMP (torch.cuda.amp.autocast) to perform operations 
-        in 16-bit while keeping a "Master Copy" of weights in 32-bit for stable optimization updates.
-    With QLoRA: 
-        The "Master Copy" doesn't exist for the base model (it's frozen 4-bit). The LoRA adapters are 
-        small enough that we often just train them in pure 32-bit or pure 16-bit directly.
-    '''
-
-
-    # Load Model (Pass quantization config if active) and convert to k-bit if enabled
-    # as per the quantization_config
-    # Note: bitsandbytes requires device_map="auto" to handle managing the k-bit weights 
-    # on GPU automatically
-    model = AutoModelForCausalLM.from_pretrained(
-        cfg['model_name'],
-        quantization_config=quantization_config,
-        device_map="auto" if use_4bit else None 
-    )
+    model = AutoModelForCausalLM.from_pretrained(cfg['model_name'])
     
     # Enable Gradient Checkpointing (saves memory)
     if cfg.get('use_gradient_checkpointing', False):
@@ -159,16 +113,9 @@ def train(cfg):
     
     # Apply LoRA if enabled
     # will create a separate set of lora matrix weights and freeze older larger matrices.
-
     if cfg.get('use_lora', False):
         try:
-            from peft import get_peft_model, LoraConfig, TaskType, prepare_model_for_kbit_training
-            
-            # CRITICAL for QLoRA: 
-            # Prepares the 4-bit model for training (Freezes layers, casts norms to fp32)
-            if use_4bit:
-                model = prepare_model_for_kbit_training(model)
-                
+            from peft import get_peft_model, LoraConfig, TaskType
             print("Applying LoRA for memory-efficient training...")
             peft_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM, 
@@ -255,8 +202,6 @@ def train(cfg):
                 Val: {training_log['val']['perplexity'][-1]}")
 
         # Save latest model
-        # Lora specific weights, config and tokenizer will be saved as 'adapter_*'. 
-        # Rest of the weghts are saved as unchanged as before.
         print(f"Saving latest model to {last_model_path}...")
         model.save_pretrained(last_model_path)
         tokenizer.save_pretrained(last_model_path)

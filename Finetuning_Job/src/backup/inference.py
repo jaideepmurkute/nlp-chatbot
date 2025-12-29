@@ -26,40 +26,10 @@ def load_model(cfg):
              model_save_path = cfg['model_name']
 
     tokenizer = AutoTokenizer.from_pretrained(model_save_path)
-    
-    # --------------------------------------
-    # QLoRA (Quantized LoRA) Setup
-    # --------------------------------------
-    use_4bit = cfg.get('use_4bit', False)
-    quantization_config = None
-    
-    if use_4bit:
-        try:
-            from transformers import BitsAndBytesConfig
-            print("QLoRA Enabled: Using 4-bit quantization for Inference.")
-            
-            compute_dtype = getattr(torch, cfg.get('bnb_4bit_compute_dtype', 'float16'))
-            
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type=cfg.get('bnb_4bit_quant_type', 'nf4'),
-                bnb_4bit_use_double_quant=cfg.get('bnb_4bit_use_double_quant', True),
-                bnb_4bit_compute_dtype=compute_dtype
-            )
-        except ImportError:
-            print("Error: 'bitsandbytes' not found. Cannot Use 4-bit quantization.")
-            raise
-
-    # Load Model (Pass quantization config if active)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_save_path,
-        quantization_config=quantization_config,
-        device_map="auto" if use_4bit else None 
-    )
+    model = AutoModelForCausalLM.from_pretrained(model_save_path)
     
     device = torch.device(cfg['device'])
-    if not use_4bit:
-        model.to(device)
+    model.to(device)
     model.eval()
 
     return model, tokenizer

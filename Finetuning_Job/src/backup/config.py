@@ -22,26 +22,12 @@ class Config:
             'early_stopping_patience': 1,
             'batch_size': 8, # Reduced for CPU RAM
             'gradient_accumulation_steps': 4, # Simulate larger batch size
-            'use_gradient_checkpointing': True,
-            'use_gradient_clipping': True,
             
-
             # LoRA Parameters
             'use_lora': True,
             'lora_r': 8,
             'lora_alpha': 32,
             'lora_dropout': 0.1,
-            
-            # Quantization Configuration (QLoRA)
-            # Note: bitsandbytes requires a GPU (CUDA) and is best supported on Linux in general.
-            # Windows support is experimental and manual installation might be needed. 
-            'use_4bit': False,                           # Set to True to enable 4-bit quantization (Requires bitsandbytes)
-            'bnb_4bit_compute_dtype': "float16",         # Computation type: DataType used for separate linear layer computations.
-                                                         # float16 / bfloat16 (brain float 16 - works only on newer GPUs, 
-                                                         # superior/stable in training) / float32
-            'bnb_4bit_quant_type': "nf4",                # Quantization type: "nf4" (Normal Float 4) or "fp4" (Regular IEEE format, 
-                                                         # but nf4 tends to work better))
-            'bnb_4bit_use_double_quant': True,           # Nested quantization for memory savings
             
             'learning_rate': 2e-4, # LoRA usually needs higher LR
             'warmup_steps': 100,

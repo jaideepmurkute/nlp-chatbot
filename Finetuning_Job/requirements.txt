@@ -8,3 +8,4 @@ scikit-learn
 accelerate
 peft
 datasets
+# bitsandbytes # Uncomment for GPU/4-bit training (Linux recommended)
