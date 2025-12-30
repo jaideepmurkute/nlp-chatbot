@@ -1,54 +1,16 @@
+# Fine-tuning Module
 
-# Fine-tuning Job
+This directory contains the pipeline for training and fine-tuning models.
 
-This directory contains the code to fine-tune a causal LLM (e.g., DialoGPT) on a custom dialogue dataset.
+> **Note**: For the complete project overview, architecture details, and setup guide, please refer to the [Root README](../README.md).
 
-## Structure
+## Directory Contents
+- **`src/`**: Contains `main.py` (training loop), `config.py` (hyperparameters), and `dataset.py` (data loading).
+- **`data/`**: Storage for input CSV datasets (Supports Instruction/Response format).
+- **`model_store/`**: Destination for saved model checkpoints and LoRA adapters.
+- **`outputs/`**: Training logs and loss visualization.
 
-- `src/`: Source code.
-  - `config.py`: Configuration parameters.
-  - `dataset.py`: Data loading and processing.
-  - `train.py`: Main training loop.
-  - `utils.py`: Helper functions.
-- `data/`: Data storage. Contains `sample_dataset.csv`.
-- `model_store/`: Where the fine-tuned model will be saved.
-- `outputs/`: Training logs and loss curves.
-
-## Setup
-
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-1. Navigate to the `src` directory:
-   ```bash
-   cd src
-   ```
-
-2. Run the training script:
-   ```bash
-   python train.py
-   ```
-
-3. Monitor progress:
-   - Loss values are printed to the console.
-   - After training, the loss curve is saved to `outputs/loss_curve.png`.
-   - The fine-tuned model is saved to `model_store/finetuned_model`.
-
-## Configuration
-
-Modify `src/config.py` to change:
-- `model_name`: Base model (default: `microsoft/DialoGPT-small`).
-- Training hyperparameters (epochs, batch size, learning rate).
-- Data paths.
-
-## Dataset Format
-
-The dataset should be a CSV file with two columns:
-- `context`: The conversation history or prompt.
-- `response`: The target response.
-
-Example in `data/sample_dataset.csv`.
+## Technical Capabilities
+- **QLoRA (4-bit)**
+- **Gradient Checkpointing**
+- **Instruction Tuning Support**

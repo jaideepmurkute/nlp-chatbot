@@ -1,0 +1,26 @@
+
+Bitext - Customer Service Tagged Training Dataset for LLM-based Virtual Assistants
+
+Reference: https://huggingface.co/datasets/bitext/Bitext-customer-support-llm-chatbot-training-dataset
+
+
+Overview:
+    This hybrid synthetic dataset is designed to be used to fine-tune Large Language Models such as 
+GPT, Mistral and OpenELM, and has been generated using our NLP/NLG technology and our automated Data 
+Labeling (DAL) tools. The goal is to demonstrate how Verticalization/Domain Adaptation for the Customer 
+Support sector can be easily achieved using our two-step approach to LLM Fine-Tuning. 
+    For example, if you are [ACME Company], you can create your own customized LLM by first training a 
+fine-tuned model using this dataset, and then further fine-tuning it with a small amount of your 
+own data. 
+    An overview of this approach can be found at: 
+        From General-Purpose LLMs to Verticalized Enterprise Models
+        (https://www.bitext.com/blog/general-purpose-models-verticalized-enterprise-genai/)
+
+
+The dataset has the following specs:
+    Use Case: Intent Detection
+    Vertical: Customer Service
+    27 intents assigned to 10 categories
+    26872 question/answer pairs, around 1000 per intent
+    30 entity/slot types
+    12 different types of language generation tags
