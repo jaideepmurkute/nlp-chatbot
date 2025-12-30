@@ -31,23 +31,13 @@ from model_singleton import ModelSingleton
 from utils import *
 
 # Import the new Strategy Pattern components
-from history_manager import ConversationContext, TokenTruncationManager
+from history_manager import ConversationContext, TokenTruncationManager, SummarizationHistoryManager
+from summarizer import Summarizer
 
 class ChatBot:
     """
     The main class for ChatBot application.
-    
-    Responsibilities:
-        1.  Initialize Model and Tokenizer (via Singleton).
-        2.  Load System Prompt.
-        3.  Manage Web Routes (Flask).
-        4.  Generate Responses (delegating history logic to HistoryManager).
-    
-    Attributes:
-        cfg (dict): Configuration settings.
-        app (Flask): Flask app instance.
-        context (ConversationContext): Holds the conversation state (history, logs, system prompt).
-        history_manager (HistoryManager): The strategy for managing conversation history.
+    ...
     """
     def __init__(self, cfg: dict, app) -> None:
         self.cfg = cfg
@@ -62,8 +52,26 @@ class ChatBot:
         # Initialize Context
         self.context = ConversationContext()
         
-        # Initialize Strategy (Defaulting to TokenTruncationManager as per original logic)
-        self.history_manager = TokenTruncationManager()
+        # Initialize Strategy based on Config
+        strategy_type = self.cfg.get('history_strategy', 'truncation')
+        
+        if strategy_type == 'summarization':
+            print("Using Summarization History Strategy.")
+            # We delay the initialization of the Summarizer to the Strategy class itself.
+            # We just pass the dependencies (model, tokenizer, device) to the strategy.
+            # Actually, the strategy executes in `process_messages` where it receives tokenizer.
+            # But it needs `model` and `device` which are NOT passed in `process_messages` usually.
+            
+            # Option 1: Pass model/device to `__init__` of Strategy.
+            device = self.model.device
+            self.history_manager = SummarizationHistoryManager(
+                summarizer_model=self.model, 
+                summarizer_tokenizer=self.tokenizer,
+                device=device
+            )
+        else:
+            print("Using Token Truncation History Strategy.")
+            self.history_manager = TokenTruncationManager()
 
         self._load_system_prompt()
         self._init_session_state()
@@ -147,7 +155,7 @@ class ChatBot:
             # Use HistoryManager to construct the optimized message list (System + Truncated History + User)
             system_prompt = getattr(self, 'system_prompt_text', "You are a helpful assistant.")
             
-            # This call encapsulates all the truncation logic (max_tot_input_prop, etc.) for lists
+            # This call encapsulates all the strategy logic (truncation, summarization, etc.)
             final_messages = self.history_manager.process_messages(
                 messages=self.context.logs, 
                 system_prompt=system_prompt, 

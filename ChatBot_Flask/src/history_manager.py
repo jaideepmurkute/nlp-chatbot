@@ -158,105 +158,74 @@ class TokenTruncationManager(HistoryManager):
             context.history_ids = torch.cat([context.history_ids, user_input_enc['input_ids']], dim=-1) 
             context.attention_mask = torch.cat([context.attention_mask, user_input_enc['attention_mask']], dim=-1)
 
+        return final_messages
+
+
+from summarizer import Summarizer
+
+class SummarizationHistoryManager(HistoryManager):
+    """
+    Concrete Strategy implementing Summarization-based History Management.
+    """
+    
+    def __init__(self, summarizer_model=None, summarizer_tokenizer=None, device='cpu'):
+        self.current_summary = ""
+        self.summarizer = None
+        # Lazy or Direct initialization of Summarizer
+        if summarizer_model and summarizer_tokenizer:
+            self.summarizer = Summarizer(summarizer_model, summarizer_tokenizer, device)
+        else:
+            print("Warning: SummarizationHistoryManager initialized without model/tokenizer. Summarization will fail.")
+
+    def process(self, context: ConversationContext, user_input_enc: dict, config: dict) -> None:
+        """
+        Legacy Tensor Pipeline - Not implemented for Summarization currently.
+        Could fallback to truncation or raise warning.
+        """
+        print("Warning: Summarization strategy not implemented for legacy tensor pipeline. Using fallback.")
+        context.history_ids = torch.cat([context.history_ids, user_input_enc['input_ids']], dim=-1) 
+        context.attention_mask = torch.cat([context.attention_mask, user_input_enc['attention_mask']], dim=-1)
+
     def process_messages(self, messages: List[Dict], system_prompt: str, user_input: str, config: dict, tokenizer) -> List[Dict]:
         """
-        [MODERN PIPELINE] Implement truncation for structured message lists (Instruct Models).
-        These models expect input format:
-        input = [{"role": "system", "content": system_prompt_str}, 
-                {"role": "user", "content": historical_user_prompt_str},
-                {"role": "assistant", "content": historical_response_str},
-                ...,
-                ...,
-                {"role": "user", "content": current_user_prompt_str},
-            ]
-        Internally, whole sequence is merged into a single string with special symbols denoting 'role' and 'content' ,
-        and tokenized into a single stream and fed to the model.
+        Constructs context using Summary + Buffer.
         
-        Logic Overview:
-        - Instead of slicing tensors, this selects WHOLE messages from history.
-        - Preserves the Chat Template structure (System -> History -> User).
-        - Logic:
-            1. Reserve space for System Prompt (Mandatory).
-            2. Reserve space for Current User Input.
-            3. Fill remaining space (Budget) with History messages, starting from the NEWEST.
-            4. If a history message doesn't fit, stop adding (Strict Pruning).
-            5. If User Input itself is too big for the context, truncate it.
+        CRITICAL: This method also MUTATES the 'messages' list (by reference) if summarization occurs!
+        The 'messages' list passed here is 'self.context.logs' from ChatBot.
         """
         final_messages = []
         
-        # 1. System Prompt Token Count
-        # (We treat system prompt as mandatory)
-        sys_tokens = len(tokenizer.encode(system_prompt))
+        # 1. Check for Buffer Overflow & Summarize
+        max_buffer = config.get('max_buffer_msgs', 5)
         
-        # 2. Add System Prompt to final list first
+        if len(messages) > max_buffer:
+            # Separate Overflow vs Buffer
+            overflow_msgs = messages[:-max_buffer] 
+            
+            # Update Summary
+            if self.summarizer:
+                # This might take time (LLM call)
+                self.current_summary = self.summarizer.summarize(self.current_summary, overflow_msgs)
+                print(f"[SummarizationHistoryManager] Updated Summary: {self.current_summary[:50]}...")
+            
+            # Update the Source List (Mutating the list in place to reflect memory change)
+            # We must keep only the last 'max_buffer' messages.
+            # Since 'messages' is a reference to 'self.context.logs', modifying it works.
+            del messages[:-max_buffer] # Delete old messages from memory
+            
+        # 2. System Prompt
         final_messages.append({"role": "system", "content": system_prompt})
         
-        # 3. User Input Token Count
-        user_tokens = len(tokenizer.encode(user_input))
-        
-        # 4. Calculate Budget
-        max_total_tokens = int(config.get('max_len', 1000) * config.get('max_tot_input_prop', 0.8))
-        
-        # Space remaining for history + user input after system prompt
-        available_context = max_total_tokens - sys_tokens
-        
-        if available_context <= 0:
-            # Fallback: System prompt is too huge, just return system + user (truncated)
-            # This is an edge case.
-             final_messages.append({"role": "user", "content": user_input}) # Template might handle truncation or error
-             return final_messages
+        # 3. Add Summary (if exists)
+        if self.current_summary:
+            # Inject Summary into System Prompt or as a separate System block
+            # Appending to the system content is usually robust.
+            final_messages[0]['content'] += f"\n\nPrevious Conversation Summary:\n{self.current_summary}"
 
-        # If current input fits easily
-        if user_tokens <= available_context:
-            history_budget = available_context - user_tokens
-            
-            # Select history from NEWEST to OLDEST
-            # Iterate backwards
-            selected_history = []
-            current_hist_tokens = 0
-            
-            # select the convesation history that can fit in leftover memory - reversed order.
-            # Assumption: Older memory less important.
-            for turn in reversed(messages):
-                # A single turn in logs is {'user': '...', 'model': '...'}
-                # We are traversing BACKWARDS: so we see Model response first, then User input
-                
-                # 1. Process Assistant Response
-                if 'model' in turn:
-                    content = turn['model']
-                    turn_len = len(tokenizer.encode(content))
-                    if current_hist_tokens + turn_len <= history_budget:
-                        selected_history.insert(0, {"role": "assistant", "content": content})
-                        current_hist_tokens += turn_len
-                    else:
-                        break # Stop if we can't fit the most recent half of the turn
-
-                # 2. Process User Input - prepended before above assistant response
-                if 'user' in turn:
-                    content = turn['user']
-                    turn_len = len(tokenizer.encode(content))
-                    if current_hist_tokens + turn_len <= history_budget:
-                        selected_history.insert(0, {"role": "user", "content": content})
-                        current_hist_tokens += turn_len
-                    else:
-                        break # Stop
-            
-            final_messages.extend(selected_history)
-            final_messages.append({"role": "user", "content": user_input})
-            
-        else:
-            # Scenario: User input itself is larger than available context (minus system prompt)
-            # Strategy: Truncate user input to fit. No history.
-            
-            # We need to decode-encode to slice text properly at token boundaries if we want to be precise,
-            # or just slice tokens.
-            # But here arguments are strings.
-            
-            # Simple approach: Encode, Slice, Decode
-            enc = tokenizer.encode(user_input)
-            truncated_ids = enc[:available_context]
-            truncated_text = tokenizer.decode(truncated_ids, skip_special_tokens=True)
-            
-            final_messages.append({"role": "user", "content": truncated_text})
-            
+        # 4. Add Buffer (Remaining Messages)
+        final_messages.extend(messages)
+        
+        # 5. Add User Input
+        final_messages.append({"role": "user", "content": user_input})
+        
         return final_messages

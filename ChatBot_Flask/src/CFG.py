@@ -26,6 +26,10 @@ class Config:
             'max_hist_input_prop': 0.8, 
             # define lower ceiling for history tokens length; as proportion of total input length
             'min_hist_input_prop': 0.1, 
+
+            # Strategy: 'truncation' (default) or 'summarization'
+            'history_strategy': 'summarization', 
+            'max_buffer_msgs': 5, # Number of recent messages to keep raw (verbatim) for summarization strategy 
             
             # output sampling parameters
             'num_beams': 1,
