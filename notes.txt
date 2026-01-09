@@ -1,0 +1,26 @@
+"""
+QLoRA:
+Loads the pretrained base model with 4-bit NF4 quantized weights using bitsandbytes; 
+weights are dequantized to FP16/BF16 only for compute.
+
+Base model parameters are frozen and never updated; no FP32 master copy exists.
+
+Prepares the quantized model for stable training (freezing, higher-precision norms).
+
+Adds LoRA adapters, which are the only trainable parameters.
+
+LoRA weights are trained in full precision with standard backpropagation and AdamW.
+
+Forward pass computes base model output + LoRA update, enabling memory-efficient fine-tuning (QLoRA).
+"""
+
+"""
+AMP vs QLoRA:
+
+PyTorch AMP's:
+    Traditionally, without quantization, you use AMP (torch.cuda.amp.autocast) to perform operations 
+    in 16-bit while keeping a "Master Copy" of weights in 32-bit for stable optimization updates.
+With QLoRA: 
+    The "Master Copy" doesn't exist for the base model (it's frozen 4-bit). The LoRA adapters are 
+    small enough that we often just train them in pure 32-bit or pure 16-bit directly.
+"""

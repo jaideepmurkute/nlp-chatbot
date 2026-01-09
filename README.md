@@ -30,11 +30,18 @@ This repository demonstrates the practical application of the following engineer
 - **Training Optimization**: Uses **Gradient Accumulation** and **Gradient Checkpointing** to handle memory constraints effectively.
 - **Data Processing**: Custom `Dataset` implementation that standardizes disparate data formats into modern **Instruction Tuning** templates (System/User/Assistant).
 
+### 🛠️ MLOps
+- **Experiment Tracking**: Integrated **Weights & Biases (W&B)** for training monitoring.
+- **Testing**:
+    - **Unit Tests**: History logic verification.
+    - **Integration**: Flask routes and Inference smoke tests.
+
 ### 💻 Software Architecture
 - **Design Patterns**: 
-    - **Strategy Pattern**: Decouples memory management logic from the core chatbot application, allowing for modular switching between different history retention strategies (e.g., Token Truncation vs. Summarization).
-    - **Singleton Pattern**: Manages the Model and Tokenizer instances to ensure efficient resource usage during API requests.
-- **Containerization**: Application is fully Dockerized to ensure consistent runtime environments.
+    - **Strategy Pattern**: Handles memory management (Token Truncation vs. Summarization).
+    - **Singleton Pattern**: Manages Model/Tokenizer lifetime.
+- **Dependency Injection**: Injects model dependencies into strategies.
+- **Containerization**: Dockerized application.
 
 ---
 
@@ -73,6 +80,7 @@ NLP Chatbot/
 │   │   ├── main.py              # Main training loop
 │   │   ├── inference.py         # Inference & Testing script
 │   │   └── dataset.py           # Custom Pytorch Dataset
+│   ├── tests/                   # Integration Tests
 │   └── data/                    # Training datasets
 │
 ├── ChatBot_Flask/               # MODULE 2: Serving
@@ -80,9 +88,11 @@ NLP Chatbot/
 │   │   ├── app.py               # Flask Entrypoint
 │   │   ├── chatbot.py           # Core - API routes, inference & session management
 │   │   ├── model_singleton.py   # Model Loading - Singleton Pattern
-│   │   ├── history_manager.py   # Context Management - Strategy Pattern
+│   │   ├── history_manager.py   # Context Management (Strategies)
+│   │   ├── summarizer.py        # Summarization Logic
 │   │   ├── CFG.py               # Configuration file for Flask app
 │   │   └── templates/           # HTML Frontend
+│   ├── tests/                   # Unit & App Tests
 │   ├── Dockerfile
 │   └── docker-compose.yml
 │
@@ -146,7 +156,7 @@ You can run the chatbot locally or via Docker.
 
 ## 🔮 Future Roadmap
 
-- [ ] **Summarization Strategy**: Implement a new `HistoryManager` strategy that summarizes old context instead of truncating it.
+- [x] **Summarization Strategy**: Implement a new `HistoryManager` strategy that summarizes old context instead of truncating it.
 - [ ] **RAG Integration**: Connect the Chatbot to a Vector Database for retrieval-augmented generation.
 - [ ] **Frontend Upgrade**: Port the simple HTML templates to a React/Next.js interface.
 

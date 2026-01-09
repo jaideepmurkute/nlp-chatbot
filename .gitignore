@@ -1,17 +1,27 @@
-# ignore ide files
 .idea/
 .vscode/
 
-#ignore python cache/bytecode/optimized files
 **/__pycache__/
 **/*.pyc  
 **/*.pyo
 **/*.pyd
 
-#ignore virtualenv
-venv/
+.venv
 .venv/
 env/
+.env
+*venv*/*
+linux_venv/
+.venv*/
+
+**/model_store/*
+!**/model_store/.gitkeep
+
+**/outputs/*
+!**/outputs/.gitkeep
+
+**/wandb/*
+
 
 
 

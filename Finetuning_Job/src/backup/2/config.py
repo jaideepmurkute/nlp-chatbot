@@ -51,11 +51,6 @@ class Config:
             
             # Logging
             'log_interval': 10,
-            
-            # W&B Logging
-            'use_wandb': True,
-            'wandb_project': 'nlp-chatbot-finetune',
-            'wandb_run_name': 'experiment_1', # Optional: Can be None to let W&B generate names
         }
 
     def get_config(self):
