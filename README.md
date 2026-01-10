@@ -12,7 +12,7 @@
 
 This repository contains two main components:
 
-1.  **Finetuning_Job**: A pipeline for training causal LLMs (e.g., Qwen, Llama, DialoGPT) using memory-efficient techniques like **QLoRA** and **Gradient Checkpointing**.
+1.  **Finetuning_Job**: A pipeline for training causal LLMs (e.g., Qwen, Llama, DialoGPT) using resource-efficient techniques like **QLoRA** and **Gradient Checkpointing**.
 2.  **ChatBot_Flask**: A containerized Flask application featuring a custom **Context Management** system that dynamically processes conversation history to fit within model constraints.
 
 The primary focus of this project is to explore efficient fine-tuning techniques (QLoRA) and implement a custom memory management system that handles context windows more logically than standard API wrappers.
