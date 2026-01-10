@@ -1,4 +1,4 @@
-# LLM Fine-Tuning & Chatbot Pipeline
+# Efficient LLM Adaptation & Context-Optimized Serving
 
 **An end-to-end system for fine-tuning Large Language Models and serving them via a context-aware Flask application.**
 
